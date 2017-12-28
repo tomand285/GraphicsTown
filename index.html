@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Graphics town framework code by Mike Gleicher
+  -- written October, 2015
+  -->
+<head>
+    <meta charset="UTF-8">
+    <title>GraphicsTown JS 2017!</title>
+</head>
+<body>
+<!-- load this stuff first -->
+<script src="Libraries/twgl-full.js"></script>
+<script src="textures/textures.js"></script>
+<script src="Libraries/panel.js"></script>
+<script src="Libraries/arcball.js"></script>
+<script src="grobject.js"></script>
+<script src="objects/sky_box.js"></script>
+<script src="ExampleObjects/ground.js"></script>
+
+
+
+<!-- This is where we load the objects for the world -->
+<!--<script src="ExampleObjects/simplest.js"></script>
+<script src="ExampleObjects/texturedplane.js"></script>-->
+<!--<script src="ExampleObjects/cube.js"></script>-->
+
+<!-- Home-made objects -->
+<script src="helper.js"></script>
+<script src="objects/wall.js"></script>
+<script src="objects/twall.js"></script>
+<script src="objects/cylinder.js"></script>
+<script src="objects/TreeCyl.js"></script>
+<script src="objects/cone.js"></script>
+<script src="objects/sphere.js"></script>
+
+<script src="obj/dragon3d.objjs"></script>
+<script src="obj/cube.objjs"></script>
+<script src="obj/wolf.objjs"></script>
+<script src="obj/falcon3d.objjs"></script>
+
+<script src="objects/dragon.js"></script>
+<script src="objects/temple.js"></script>
+<script src="objects/falcon.js"></script>
+<!--<script src="objects/objTest.js"></script>-->
+
+<!-- This gets loaded LAST (actually, it probably doesn't have to) -->
+<script src="graphicstown.js"></script>
+</body>
+
+<!-- all of the shaders get stuck here in the HTML because
+  -- that's the only way I know to load them without either
+  -- sticking them in JavaScript strings, or using a web server
+  -->
+
+<script id="cube-vs" type="notjs">
+// specialized shader for the simple cube
+// we assume that the model matrix works as the normal
+//      matrix - this only is try if the model matrix
+//      it a rotate/translate
+//      (uniform scale is OK since we re-normalize)
+// color is solid
+// simple lighting
+    precision highp float;
+
+    attribute vec3 vpos;
+    attribute vec3 vnormal;
+    varying vec3 outColor;
+
+    uniform mat4 view;
+    uniform mat4 proj;
+    uniform mat4 model;
+    uniform vec3 lightdir;
+    uniform vec3 cubecolor;
+
+
+    void main(void) {
+        gl_Position = proj * view * model * vec4(vpos, 1.0);
+        vec4 normal = normalize(model * vec4(vnormal,0.0));
+        float diffuse = .5 + .5*abs(dot(normal, vec4(lightdir,0.0)));
+        outColor = cubecolor * diffuse;
+    }
+</script>
+<script id="cube-fs" type="notjs">
+// simple shader that does vertex coloring
+//  (e.g. the vertex shader figures the lighting
+// note this is used for more than just the cube
+    precision highp float;
+    varying vec3 outColor;
+    void main(void) {
+        gl_FragColor = vec4(outColor, 1.0);
+    }
+</script>
+<script id="map-vs" type="notjs">
+// specialized shader for the simple cube
+// we assume that the model matrix works as the normal
+//      matrix - this only is try if the model matrix
+//      it a rotate/translate
+//      (uniform scale is OK since we re-normalize)
+// color is solid
+// simple lighting
+    precision highp float;
+
+    attribute vec3 vpos;
+    attribute vec3 vnormal;
+    varying vec3 fPos;
+
+    uniform mat4 view;
+    uniform mat4 proj;
+    uniform mat4 model;
+    uniform vec3 lightdir;
+    uniform vec3 cubecolor;
+
+
+    void main(void) {
+        gl_Position = proj * view *model * vec4(vpos, 1.0);
+        fPos = vpos;
+    }
+</script>
+<script id="map-fs" type="notjs">
+// simple shader that does vertex coloring
+//  (e.g. the vertex shader figures the lighting
+// note this is used for more than just the cube
+    precision highp float;
+    varying vec3 fPos;
+    uniform samplerCube skymap;
+    void main(void) {
+        gl_FragColor = vec4(textureCube(skymap, fPos).xyz, 1.0);
+    }
+</script>
+
+<script id="default-vs" type="notjs">
+// specialized shader for the simple cube
+// we assume that the model matrix works as the normal
+//      matrix - this only is try if the model matrix
+//      it a rotate/translate
+//      (uniform scale is OK since we re-normalize)
+// color is solid
+// simple lighting
+    precision highp float;
+
+    attribute vec3 vpos;
+    attribute vec2 vtex;
+    attribute vec3 vnormal;
+
+    varying vec3 fColor;
+    varying vec2 fTexCoord;
+    varying vec3 fLightDir;
+    varying vec3 fPos;
+    varying vec3 vp;
+    varying vec3 fNormal;
+
+    uniform mat4 view;
+    uniform mat4 proj;
+    uniform mat4 model;
+    uniform vec3 lightdir;
+    uniform vec3 cubecolor;
+
+
+    void main(void) {
+        gl_Position = proj * view * model * vec4(vpos, 1.0);
+        vec4 normal = normalize(model * vec4(vnormal,0.0));
+        fNormal = normal.xyz;
+        fPos = (view * model * vec4(vpos.xyz,1.0)).xyz;
+        vp = vpos.xyz;
+        float diffuse = .5 + .5*abs(dot(normal, vec4(lightdir,0.0)));
+        fLightDir = lightdir;
+        //fColor = cubecolor;
+        //fColor = cubecolor * diffuse;
+        fColor = vec3(diffuse);
+        fTexCoord = vtex;
+    }
+</script>
+<script id="default-fs" type="notjs">
+// simple shader that does vertex coloring
+//  (e.g. the vertex shader figures the lighting
+// note this is used for more than just the cube
+    precision highp float;
+    varying vec3 fPos;
+    varying vec2 fTexCoord;
+    varying vec3 fLightDir;
+    varying vec3 fColor;
+    varying vec3 fNormal;
+
+    const float specular_coeff  = 8.0;
+    const float specular_exp    = 128.0;
+    const vec3  light_color     = vec3(1.0,1.0,0.0);
+
+    uniform sampler2D texSampler;
+
+    void main(void) {
+        vec3 l = normalize(fLightDir);
+        vec3 n = normalize(fNormal);
+        vec3 e = normalize(-fPos);
+        vec3 h = normalize(e+l);
+
+        vec4 texColor = texture2D(texSampler, fTexCoord);
+        vec3 specular_color = specular_coeff * pow(max(0.0,dot(n,h)),specular_exp) * light_color;
+        gl_FragColor = vec4(texColor) * vec4(fColor + specular_color, 1.0);
+        //gl_FragColor = vec4(texColor);
+    }
+</script>
+<script id="ground-fs" type="notjs">
+    // note this is used for more than just the cube
+    precision highp float;
+    varying vec3 fPos;
+    varying vec3 vp;
+    varying vec2 fTexCoord;
+    varying vec3 fLightDir;
+    varying vec3 fColor;
+    varying vec3 fNormal;
+
+    const float specular_coeff  = 16.0;
+    const float specular_exp    = 128.0;
+    const vec3  light_color     = vec3(1.0,1.0,0.0);
+
+    uniform sampler2D texSampler1;
+    uniform sampler2D texSampler2;
+
+    void main(void) {
+        vec3 l = normalize(fLightDir);
+        vec3 n = normalize(fNormal);
+        vec3 e = normalize(-fPos);
+        vec3 h = normalize (e+l);
+
+        vec4 texColor = texture2D(texSampler1, fTexCoord);
+        if(vp.x > -3.5 && vp.x < 3.5 )
+            texColor = texture2D(texSampler2, fTexCoord);
+        vec3 specular_color = specular_coeff * pow(max(0.0,dot(n,h)),specular_exp) * light_color;
+        gl_FragColor = vec4(texColor) * vec4(fColor + specular_color, 1.0);
+    }
+</script>
+<style>
+    *{
+        margin: 0;
+        padding: 0;
+    }
+    html, body{
+        width:  100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: black;
+        color: white;
+        }
+    #controls{
+        position: absolute;
+        left: 20px;
+        top: 20px;
+        background-color: transparent;
+        color: white;
+    }
+    #loading{
+        text-align: center;
+
+    }
+    .loader {
+        border: 16px solid #f3f3f3;
+        border-top: 16px solid blue;
+        border-right: 16px solid green;
+        border-bottom: 16px solid red;
+        border-radius: 100%;
+        width: 30px;
+        height: 30px;
+        margin: auto;
+        animation: spin 2s linear infinite;
+    }
+
+    @-webkit-keyframes spin {
+        0% { -webkit-transform: rotate(0deg); }
+        100% { -webkit-transform: rotate(360deg); }
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+  </style>
+  <body>
+    <div id="loading">
+            <h1>Please wait while the scene is loading...<br/>We are loading over 300,000 triangles!!</h1>
+            <!--ship:177,806; dragon:107,944; trees:  temple: -->
+            <!--loader from  https://www.w3schools.com/howto/howto_css_loader.asp-->
+            <div class="loader"></div>
+    </div>
+    </body>
+</html>
