@@ -4,6 +4,7 @@ UW-Madison CS 559 - Computer Graphics (Fall 2017) Project
 * Professor: Eftychios Sifakis
 * Framework: [GraphicsTown by Gleicher](https://github.com/uwgraphics/GraphicsTownJS2015) 
 * Project Notes: [graphicstown part 1](http://graphics.cs.wisc.edu/WP/cs559-fall2017/2017/11/13/programming-assignment-7-graphicstown-part-i/)
+* Live Demo: [Click here to view](http://pages.cs.wisc.edu/~tomko/GraphicsTown/)
 
 All of the changes from the framework to this repository are by Andrew Tomko
 
